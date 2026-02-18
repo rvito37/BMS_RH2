@@ -1,0 +1,270 @@
+================================================================================
+RPQC01V4.RH2 — FULL STRUCTURAL ANALYSIS
+"Production Line Report (PQC01V4)" — AVX Israel
+================================================================================
+File: RPQC01V4.RH2 (47,141 bytes)
+Called by: RPQC01V1.PRG (the "new" report variant)
+Also uses: RPQC01V5.RH2 (for sort option #5: "Proj+Line+Size+Val+Prior+Slack")
+
+================================================================================
+1. DATA SOURCES (TABLES)
+================================================================================
+
+  Alias      | DBF File              | Index (CDX)      | Driver
+  -----------+-----------------------+------------------+---------
+  D_LINE     | G:\TEST\D_LINE.DBF    | ILNBESNP (.NTX)  | DBFCDXAX
+  C_PROC     | G:\TEST\C_PROC.DBF    | IPROC_ID (.NTX)  | DBFCDXAX
+  C_PROC1    | G:\TEST\C_PROC.DBF    | IPROC_ID (.NTX)  | DBFCDXAX  (2nd alias)
+  M_LINEMV   | G:\TEST\M_LINEMV.DBF  | (B_ID+CPPROC_ID) | DBFCDXAX
+
+================================================================================
+2. TABLE RELATIONS
+================================================================================
+
+  D_LINE->CPPROC_ID  ==  C_PROC->PROC_ID      (current process)
+  D_LINE->PPPROC_ID  ==  C_PROC1->PROC_ID     (previous process)
+  D_LINE->B_ID + D_LINE->CPPROC_ID  ==  M_LINEMV->B_ID + M_LINEMV->CPPROC_ID
+  (SEEK_KEY1 virtual field used for this relation)
+
+================================================================================
+3. INDEX/SORT KEY (built into RH2)
+================================================================================
+
+  D_LINE->B_TYPE + D_LINE->SIZE_ID + STR(D_LINE->VALUE_ID,8,3) +
+  D_LINE->TOL_ID + D_LINE->VOLT_ID + D_LINE->TC_ID +
+  D_LINE->TERM_ID + D_LINE->ESNXX_ID + D_LINE->ESNY_ID
+
+================================================================================
+4. VIRTUAL (CALCULATED) FIELDS
+================================================================================
+
+  Name         | Expression                                    | Purpose
+  -------------+-----------------------------------------------+---------------------------
+  MyRepName    | RepName()                                     | Report name
+  Mypage       | Pageno()                                      | Page number
+  GetUser      | LogInUser()                                   | Current user (dflt: "SHAI")
+  MyDate       | Dtoc(date())+" "+Time()                       | Current date+time
+  LineNo       | Count(D_LINE->B_ID,Grand,Automatic,Running)   | Row counter
+  StarW        | IIF(C_PROC->MUST_W, " ", "*")                 | Star if W not required
+  StarS        | IIF(C_PROC->MUST_S, " ", "*")                 | Star if S not required
+  StarP        | IIF(C_PROC->MUST_P, " ", "*")                 | Star if P not required
+  GetSlack     | slack("d_line")                                | Days of slack
+  QtyProm      | QtyPromised("d_line")                          | Promised quantity
+  QtyExp       | QtyExpected("d_line")                          | Expected quantity
+  SEEK_KEY1    | D_LINE->B_ID + D_LINE->CPPROC_ID              | Composite key for M_LINEMV
+  procname     | (from C_PROC) GetUniProc()                     | Current process name
+  procname1    | substr(C_PROC1->PROC_NMH,2,19)                | Previous process name
+  UserSubttl   | PrnGetUserMsg()                                | User subtitle (up to 70 chars)
+  t_qtyprom    | Sum(_VIRTUAL_->QtyProm,Grand,Automatic,Running)| Running total promised
+  t_qtyexp     | Sum(_VIRTUAL_->QtyExp,Grand,Automatic,Running) | Running total expected
+
+================================================================================
+5. D_LINE FIELDS (all fields from main table)
+================================================================================
+
+  B_ID          Batch ID (primary key)
+  ESN_ID        ESN identifier
+  B_TYPE        Batch type
+  PTYPE_ID      Product type
+  PLINE_ID      Product line
+  SIZE_ID       Size
+  VALUE_ID      Value (numeric, 8,3)
+  VOLT_ID       Voltage
+  TOL_ID        Tolerance
+  TC_ID         Temperature coefficient
+  TERM_ID       Termination type
+  ESN_P1/P2/P3  ESN parts 1,2,3
+  ESNXX_ID      ESN(XX)
+  ESNY_ID       ESN(Y)
+  DIEL_ID       Dielectric ID
+  DIEL_WIDTH    Dielectric width
+  B_NCAPS       Number of capacitors
+  B_DOPEN       Date opened
+  QTY_BINI      Initial batch quantity
+  UOM_INI       Unit of measure
+  B_DPROM       Promised date
+  B_REMARK      Remark text
+  MARKER        Marker flag
+  B_PURP        Purpose code
+  B_STAT        Status code
+  B_PRIOR       Priority
+  B_WKPROM      Promised week
+  ROUTE_ID      Route ID
+  ROUTE_ID2     Route ID 2
+  ROUTE_REV     Route revision
+  ROUTE_REV2    Route revision 2
+  CP_BQTYP      Current proc batch qty (pieces)
+  CP_BQTYS      Current proc batch qty (sheets)
+  CP_BQTYW      Current proc batch qty (wafers)
+  EXPQ_FCTR     Expected qty factor
+  QTY_BSCR      Batch scrap qty
+  CPPROC_ID     Current process ID
+  CP_PCCODE     Current process code
+  CPWKSTN_ID    Current workstation ID
+  CP_DSTA       Current proc start date
+  CP_TSTA       Current proc start time
+  CP_WIDSTA     Current proc worker ID (start)
+  CP_DARR       Current proc arrival date
+  CP_TARR       Current proc arrival time
+  CP_WIDARR     Current proc worker ID (arrival)
+  PPPROC_ID     Previous process ID
+  PP_PCCODE     Previous process code
+  PP_WKSTN      Previous workstation
+  PP_BQTYP/S/W  Previous proc batch qtys
+  PP_DARR       Previous proc arrival date
+  PP_TARR       Previous proc arrival time
+  PP_DSTA       Previous proc start date
+  PP_TSTA       Previous proc start time
+  PP_DFIN       Previous proc finish date
+  PP_TFIN       Previous proc finish time
+  PP_WIDFIN     Previous proc worker ID (finish)
+  PP_TOTSCR     Previous proc total scrap
+  B_LREJ        Last rejection
+  DISCR_REP     Discrepancy report
+  EXPFINDATE    Expected finish date
+  DADD_REC      Date record added
+  DLU_REC       Date last updated
+  TLU_REC       Time last updated
+  ULU_REC       User last updated
+  WLU_REC       Worker last updated
+  PLU_REC       Program last updated
+  LOCKKEY       Lock key
+
+================================================================================
+6. C_PROC FIELDS (process master table)
+================================================================================
+
+  PROC_ID       Process ID
+  PROC_NME      Process name (English)
+  PROC_NMH      Process name (Hebrew)
+  WKSTN_ID      Workstation ID
+  PCPROCNO      PC process number
+  PP_PCCODE     Previous process code
+  DAY_TARG      Day target
+  MUST_W        Must report wafers (logical)
+  MUST_S        Must report sheets (logical)
+  MUST_P        Must report pieces (logical)
+  UOM_ID        Unit of measure ID
+  REJ_GRP       Rejection group
+  YLD_GRP       Yield group
+  CALC_EXP      Calculation expression
+  PROC_TYPE     Process type
+  SCR1/SCR2     Screen fields
+  SEQ_NO        Sequence number
+  EOP_QTYDEF    End of process quantity default
+  PROD_LOC      Production location
+  + audit fields (DADD_REC, DLU_REC, TLU_REC, ULU_REC, WLU_REC, PLU_REC, LOCKKEY)
+
+================================================================================
+7. M_LINEMV FIELDS (batch movement history)
+================================================================================
+
+  B_ID          Batch ID
+  ESN_ID        ESN
+  B_TYPE        Batch type
+  PTYPE_ID      Product type
+  PLINE_ID      Product line
+  SIZE_ID       Size
+  VALUE_ID      Value
+  VOLT_ID       Voltage
+  TOL_ID        Tolerance
+  TC_ID         TC
+  TERM_ID       Termination
+  ESNXX_ID      ESN(XX)
+  ESNY_ID       ESN(Y)
+  DIEL_ID       Dielectric
+  DIEL_WIDTH    Dielectric width
+  B_NCAPS       Number of capacitors
+  B_PURP        Purpose
+  B_STAT        Status
+  B_PRIOR       Priority
+  ROUTE_ID      Route
+  CP_BQTYP/S/W  Current qty (P/S/W)
+  CP_TOTSCR     Total scrap
+  B_LREJ        Last rejection
+  DISCR_REP     Discrepancy report
+  CP_ADJSCR     Adjusted scrap
+  CP_STAGE      Current stage
+  CPPROC_ID     Current process ID
+  CP_PCCODE     Process code
+  CPWKSTN_ID    Workstation ID
+  ARR           Arrived (logical)
+  CP_DARR       Arrival date
+  CP_TARR       Arrival time
+  STA           Started (logical)
+  CP_DSTA       Start date
+  CP_TSTA       Start time
+  CP_WIDSTA     Worker ID (start)
+  FIN           Finished (logical)
+  CP_DFIN       Finish date
+  CP_TFIN       Finish time
+  CP_WIDFIN     Worker ID (finish)
+  CP_WIDARR     Worker ID (arrival)
+  PROC_SPEC     Process specification
+  PROC_TYPE     Process type
+  I1/I2/I3      Inspector fields
+  + audit fields
+
+================================================================================
+8. REPORT LAYOUT
+================================================================================
+
+HEADER (Page Top):
+  +-----------------------------------------------------------...+
+  | AVX Israel                                                    |
+  | Production line report              Report No.: [MyRepName]   |
+  | [UserSubttl]                        Page# [Mypage]            |
+  | User: [GetUser]    [MyDate]                                   |
+  +-----------------------------------------------------------...+
+
+COLUMN HEADERS:
+  +-----+-+------+----+--------+----+------+--------+----...+
+  |No.  |P|B/N   |Size|Value   |    |Curr. |Current |Pr |...
+  |     | |      |    |        |    |qty   |process |   |...
+  |     | |      |    |        |W S P      |        |   |...
+  +-----+-+------+----+--------+----+------+--------+----...+
+
+  Full column order:
+  LineNo | B_PURP | B_ID | Size | Value | StarW StarS StarP |
+  Current qty (W S P) | Current process | Pr(ior) |
+  Sch.fin date | Rep.Stage | Date | Time | Hours At |
+  Slack | Promised qty | Expected qty | Status | Remark | ESN
+
+BODY:
+  One line per batch (D_LINE record)
+
+SUMMARY (Page Bottom):
+  Sum of QtyProm (running total)
+  Sum of QtyExp (running total)
+  "End Of Report: Production line report (PQC01V4)"
+
+================================================================================
+9. UDF FUNCTIONS REFERENCED
+================================================================================
+
+  RepName()           - returns current report name
+  Pageno()            - returns page number
+  LogInUser()         - returns current logged-in user
+  slack("d_line")     - calls Slack_01() = b_dprom - ExpFinDate
+  QtyPromised("d_line") - sums d_prom->qty_prom for matching b_id
+  QtyExpected("d_line") - calls AvailbleForAnyOne() calculation
+  PrnGetUserMsg()     - user-entered subtitle
+  GetUniProc()        - current process unique name
+  RepStage()          - F/A/S/? stage indicator
+  HoursAt()           - hours at current stage
+  GetDate01()         - date of current stage event
+  GetTime01()         - time of current stage event
+
+================================================================================
+10. ADDITIONAL RH2 FILES FOR THIS REPORT
+================================================================================
+
+  RPQC01V1.RH2 - old classic version (12 sort options)
+  RPQC01V2.RH2 - variant with form-feed per workstation
+  RPQC01V3.RH2 - variant with value grouping
+  RPQC01V4.RH2 - current "new" version (this analysis) — 5 sorts
+  RPQC01V5.RH2 - variant for sort #5 (Proj+Line+Size+Val+Prior+Slack)
+
+================================================================================
+END OF ANALYSIS
+================================================================================
