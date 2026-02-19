@@ -627,21 +627,24 @@ ENDIF
 *
 * �"��� ����
 *
+IF ::nDest == rpHTML
+   @ 2,0 SAY Padr( " " + Chr(16) + " Generating report data...", 80 ) COLOR "W+/B"
+ENDIF
 rpGenReport( oRP )       // generate report output
 
 
 IF ::nDest == rpHTML
    * TVR wrote a text file via rpPRINTER_FILE - convert it to HTML
    uVar := Alltrim( ::cTempFileDir + GetPrintFile() )
-   @ 2,0 SAY Padr( " "+Chr(16)+" Converting to HTML...", 80 ) COLOR "W+/R"
+   * TextToHtml shows its own animated progress bar on row 2
    TextToHtml( uVar, uVar + ".htm" )
    FERASE( uVar )
    * open HTML file in default browser - need full path with drive letter
    uVar := CurDrive() + uVar + ".htm"
-   @ 2,0 SAY Padr( " "+Chr(16)+" Opening in browser...", 80 ) COLOR "W+/R"
+   @ 2,0 SAY Padr( " " + Chr(16) + " Opening in browser...", 80 ) COLOR "W+/N*"
    RUN ( "cmd /c start " + Chr(34)+Chr(34) + " " + Chr(34) + uVar + Chr(34) )
-   @ 2,0 SAY Padr( " "+Chr(251)+" HTML report ready: " + GetPrintFile() + ".htm", 80 ) COLOR "W+/G"
-   INKEY(2)
+   @ 2,0 SAY Padr( " " + Chr(251) + " HTML report ready!  " + GetPrintFile() + ".htm", 80 ) COLOR "W+/G"
+   INKEY(1)
 ELSEIF ::nDest == rpPRINTER_FILE
    fn_fLPTCap()
 ELSEIF ::nDest == rpPRINTER

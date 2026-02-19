@@ -24,6 +24,7 @@ LOCAL nIn, nOut, nRead
 LOCAL cLeftOver, cChunk, cWork, cLine, cClean
 LOCAL cHeader, cFooter
 LOCAL nCR, nFF
+LOCAL nFileSize, nBytesRead, nPct, nLastPct, cBar, nFill, nK
 
 * build CP862->UTF8 table on first call
 IF aCP862 == NIL
@@ -34,6 +35,15 @@ nIn := FOPEN( cTextFile, 0 )
 IF nIn <= 0
    RETURN .F.
 ENDIF
+
+* get file size for progress display
+nFileSize := FSEEK( nIn, 0, 2 )
+FSEEK( nIn, 0, 0 )
+IF nFileSize <= 0
+   nFileSize := 1
+ENDIF
+nBytesRead := 0
+nLastPct   := -1
 
 nOut := FCREATE( cHtmlFile )
 IF nOut <= 0
@@ -71,6 +81,19 @@ cChunk    := space( 4096 )
 
 DO WHILE .T.
    nRead := FREAD( nIn, @cChunk, 4096 )
+
+   * update animated progress bar
+   IF nRead > 0
+      nBytesRead := nBytesRead + nRead
+   ENDIF
+   nPct := Int( ( nBytesRead * 100 ) / nFileSize )
+   IF nPct > 100
+      nPct := 100
+   ENDIF
+   IF nPct <> nLastPct
+      nLastPct := nPct
+      ShowProgress( nPct )
+   ENDIF
 
    IF nRead > 0
       cWork := cLeftOver + Left( cChunk, nRead )
@@ -153,6 +176,38 @@ IF nFF > 0
 ELSE
    FWRITE( nOut, cClean + CRLF )
 ENDIF
+
+RETURN NIL
+/*========================================================================*/
+
+/*========================================================================*/
+STATIC FUNCTION ShowProgress( nPct )
+/*
+ *  Draw animated progress bar on row 2
+ *  30-char wide bar: filled blocks + empty, plus percentage
+ */
+LOCAL nFill, nK, cBar, cSpin
+STATIC nSpin
+
+IF nSpin == NIL
+   nSpin := 0
+ENDIF
+nSpin := nSpin + 1
+
+* spinning character animation  |  /  -  backslash
+cSpin := SubStr( "|/-" + Chr(92), ( nSpin % 4 ) + 1, 1 )
+
+* build 30-char progress bar
+nFill := Int( ( nPct * 30 ) / 100 )
+cBar  := ""
+FOR nK := 1 TO nFill
+   cBar := cBar + Chr(219)    // █ filled block
+NEXT
+FOR nK := nFill + 1 TO 30
+   cBar := cBar + Chr(176)    // ░ empty block
+NEXT
+
+@ 2,0 SAY Padr( " " + cSpin + " Converting to HTML  [" + cBar + "] " + LTrim(Str(nPct)) + "%", 80 ) COLOR "W+/B"
 
 RETURN NIL
 /*========================================================================*/
