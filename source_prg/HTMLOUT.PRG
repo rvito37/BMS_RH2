@@ -19,12 +19,16 @@
 STATIC aCP862       // CP862 to UTF-8 lookup table (built once)
 
 /*========================================================================*/
-FUNCTION TextToHtml( cTextFile, cHtmlFile )
+FUNCTION TextToHtml( cTextFile, cHtmlFile, lAutoPrint )
 LOCAL nIn, nOut, nRead
 LOCAL cLeftOver, cChunk, cWork, cLine, cClean
 LOCAL cHeader, cFooter
 LOCAL nCR, nFF
 LOCAL nFileSize, nBytesRead, nPct, nLastPct, cBar, nFill, nK
+
+IF lAutoPrint == NIL
+   lAutoPrint := .F.
+ENDIF
 
 * build CP862->UTF8 table on first call
 IF aCP862 == NIL
@@ -139,9 +143,16 @@ DO WHILE .T.
 ENDDO
 FCLOSE( nIn )
 
-cFooter := '</pre>'    + CRLF +;
-           '</body>'   + CRLF +;
-           '</html>'   + CRLF
+IF lAutoPrint
+   cFooter := '</pre>'    + CRLF +;
+              '<script>window.onload=function(){window.print()}</script>' + CRLF +;
+              '</body>'   + CRLF +;
+              '</html>'   + CRLF
+ELSE
+   cFooter := '</pre>'    + CRLF +;
+              '</body>'   + CRLF +;
+              '</html>'   + CRLF
+ENDIF
 
 FWRITE( nOut, cFooter )
 FCLOSE( nOut )
