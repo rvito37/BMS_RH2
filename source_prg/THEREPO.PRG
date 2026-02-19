@@ -594,11 +594,8 @@ IF ::lCreateORP  //YG Shuwadah?
    oRP[ rpREPORT ][ rpREPORT_SHOW_COUNTER ] := .f.
 ENDIF
 IF ::nDest == rpHTML
-   * HTML output - open HTML file, then tell engine to write to a
-   * temp file (rpPRINTER_FILE) which we will ignore. PAGEOUT.PRG
-   * checks HtmlIsOpen() and redirects output to HtmlPageOut().
-   uVar := ::cTempFileDir + GetPrintFile() + ".html"
-   HtmlOpen( Alltrim(uVar) )
+   * HTML output - let TVR generate a normal text file first,
+   * then convert it to HTML after rpGenReport() finishes.
    rpDestination( oRP, rpPRINTER_FILE )
    rpPrinter( oRP, "ASCII" )
    rpOutFile( oRP, Alltrim( ::cTempFileDir + GetPrintFile() ) )
@@ -634,9 +631,10 @@ rpGenReport( oRP )       // generate report output
 
 
 IF ::nDest == rpHTML
-   * HTML file is closed by rpPrintReset() via HtmlClose()
-   * delete the temp text file that rpPRINTER_FILE created
-   FERASE( ::cTempFileDir + GetPrintFile() )
+   * TVR wrote a text file via rpPRINTER_FILE - convert it to HTML
+   uVar := Alltrim( ::cTempFileDir + GetPrintFile() )
+   TextToHtml( uVar, uVar + ".html" )
+   FERASE( uVar )
 ELSEIF ::nDest == rpPRINTER_FILE
    fn_fLPTCap()
 ELSEIF ::nDest == rpPRINTER

@@ -1,31 +1,41 @@
 // htmlout.prg
-// HTML output functions for report engine
-// Replaces printer/file output with HTML file generation
+// Convert TVR text file output to HTML
 //
-// Usage: called from rpPageOut() when destination is rpHTML
+// After rpGenReport() writes a text file via rpPRINTER_FILE,
+// TextToHtml() reads it and creates an HTML file with the same
+// content wrapped in <pre> tags.  Form-feed characters (chr 12)
+// become visual page breaks.
 //
-// The aPage[] array received from rpGenReport() contains fully
-// formatted monospace text lines (headers, body, footers, borders).
-// We wrap them in <pre> tags so the HTML looks identical to print.
+// No changes to PAGEOUT.PRG or any TVR library files required.
 
 #include "avxdefs.ch"
 
-STATIC nHtmlHandle  := 0
-STATIC lHtmlStarted := .F.
-
 /*========================================================================*/
-FUNCTION HtmlOpen( cFileName )
+FUNCTION TextToHtml( cTextFile, cHtmlFile )
 /*
- *  Open HTML file and write the document header.
- *  Called once before the first page.
- *  cFileName - full path including .html extension
- *  Returns   - file handle ( > 0 on success )
+ *  Read the text file produced by rpPRINTER_FILE and write an
+ *  HTML file with identical visual layout.
+ *
+ *  cTextFile - full path to the text file (no extension)
+ *  cHtmlFile - full path for the output .html file
+ *
+ *  Returns .T. on success, .F. on failure
  */
-LOCAL cHeader
+LOCAL nIn, nOut
+LOCAL cText, cLine
+LOCAL cHeader, cFooter
+LOCAL nPos, nLen
+LOCAL nCR, nFF, cOut
 
-nHtmlHandle := FCREATE( cFileName )
-IF nHtmlHandle <= 0
-   RETURN 0
+nIn := FOPEN( cTextFile, 0 )     // read-only
+IF nIn <= 0
+   RETURN .F.
+ENDIF
+
+nOut := FCREATE( cHtmlFile )
+IF nOut <= 0
+   FCLOSE( nIn )
+   RETURN .F.
 ENDIF
 
 cHeader := '<!DOCTYPE html>'                                      + Chr(13)+Chr(10) +;
@@ -48,105 +58,77 @@ cHeader := '<!DOCTYPE html>'                                      + Chr(13)+Chr(
            '<body>'                                               + Chr(13)+Chr(10) +;
            '<pre>'                                                + Chr(13)+Chr(10)
 
-FWRITE( nHtmlHandle, cHeader )
-lHtmlStarted := .T.
+FWRITE( nOut, cHeader )
 
-/* DEBUG: log HtmlOpen result - remove after testing */
-memowrit( "c:\temp\htmlopen_debug.txt", ;
-          "HtmlOpen: handle=" + str(nHtmlHandle) + ;
-          " file=" + cFileName + ;
-          " started=" + IIF( lHtmlStarted, "T", "F" ) )
+* read entire text file
+cText := space( 65535 )
+nLen  := 0
+cLine := ""
+DO WHILE .T.
+   nLen := FREAD( nIn, @cText, 65535 )
+   IF nLen <= 0
+      EXIT
+   ENDIF
+   cLine := cLine + Left( cText, nLen )
+ENDDO
+FCLOSE( nIn )
 
-RETURN nHtmlHandle
+* process line by line
+nPos := 1
+DO WHILE nPos <= Len( cLine )
+
+   * check for form-feed (page break)
+   nFF := At( Chr(12), SubStr( cLine, nPos ) )
+   * check for line end
+   nCR := At( Chr(13), SubStr( cLine, nPos ) )
+
+   IF nFF > 0 .AND. ( nCR == 0 .OR. nFF < nCR )
+      * form-feed before next CR - output page break
+      IF nFF > 1
+         cOut := SubStr( cLine, nPos, nFF - 1 )
+         FWRITE( nOut, HtmlEsc( cOut ) + Chr(13)+Chr(10) )
+      ENDIF
+      FWRITE( nOut, '</pre>' + Chr(13)+Chr(10) +;
+                     '<div class="page-break"></div>' + Chr(13)+Chr(10) +;
+                     '<pre>' + Chr(13)+Chr(10) )
+      nPos := nPos + nFF
+   ELSEIF nCR > 0
+      * normal line ending with CR/LF
+      cOut := SubStr( cLine, nPos, nCR - 1 )
+      FWRITE( nOut, HtmlEsc( cOut ) + Chr(13)+Chr(10) )
+      nPos := nPos + nCR
+      * skip LF after CR
+      IF nPos <= Len( cLine ) .AND. SubStr( cLine, nPos, 1 ) == Chr(10)
+         nPos := nPos + 1
+      ENDIF
+   ELSE
+      * last line, no CR
+      cOut := SubStr( cLine, nPos )
+      IF !Empty( cOut )
+         FWRITE( nOut, HtmlEsc( cOut ) + Chr(13)+Chr(10) )
+      ENDIF
+      EXIT
+   ENDIF
+ENDDO
+
+cFooter := '</pre>'    + Chr(13)+Chr(10) +;
+           '</body>'   + Chr(13)+Chr(10) +;
+           '</html>'   + Chr(13)+Chr(10)
+
+FWRITE( nOut, cFooter )
+FCLOSE( nOut )
+
+RETURN .T.
 /*========================================================================*/
 
 /*========================================================================*/
-FUNCTION HtmlPageOut( aPage )
+STATIC FUNCTION HtmlEsc( cStr )
 /*
- *  Write one page of report output to the HTML file.
- *  Called by rpPageOut() for each page that rpGenReport() renders.
- *  aPage - array of character strings (one per line), may contain
- *          chr(12) form-feed characters for page breaks.
- */
-LOCAL nK
-LOCAL cLine
-
-/* DEBUG: log HtmlPageOut calls - remove after testing */
-memowrit( "c:\temp\htmlpageout_debug.txt", ;
-          "HtmlPageOut: handle=" + str(nHtmlHandle) + ;
-          " pages=" + str(Len(aPage)) + ;
-          " started=" + IIF( lHtmlStarted, "T", "F" ) )
-
-IF nHtmlHandle <= 0
-   RETURN NIL
-ENDIF
-
-FOR nK := 1 TO Len( aPage )
-
-    IF At( Chr(12), aPage[nK] ) > 0
-       // Form feed - page break
-       cLine := STRTRAN( aPage[nK], Chr(12), "" )
-       IF !Empty( cLine )
-          FWRITE( nHtmlHandle, HtmlEscape( cLine ) + Chr(13)+Chr(10) )
-       ENDIF
-       FWRITE( nHtmlHandle, '</pre>' + Chr(13)+Chr(10) +;
-                            '<div class="page-break"></div>' + Chr(13)+Chr(10) +;
-                            '<pre>' + Chr(13)+Chr(10) )
-    ELSE
-       FWRITE( nHtmlHandle, HtmlEscape( aPage[nK] ) + Chr(13)+Chr(10) )
-    ENDIF
-
-NEXT
-
-RETURN NIL
-/*========================================================================*/
-
-/*========================================================================*/
-FUNCTION HtmlClose()
-/*
- *  Write closing tags and close the HTML file.
- *  Called once after all pages are output.
- */
-IF nHtmlHandle > 0
-   FWRITE( nHtmlHandle, '</pre>'    + Chr(13)+Chr(10) +;
-                        '</body>'   + Chr(13)+Chr(10) +;
-                        '</html>'   + Chr(13)+Chr(10) )
-   FCLOSE( nHtmlHandle )
-ENDIF
-
-nHtmlHandle  := 0
-lHtmlStarted := .F.
-
-RETURN NIL
-/*========================================================================*/
-
-/*========================================================================*/
-FUNCTION HtmlEscape( cStr )
-/*
- *  Escape HTML special characters so the line displays correctly
- *  inside a <pre> block.
+ *  Escape HTML special characters for display inside <pre> block
  */
 cStr := STRTRAN( cStr, "&" , "&amp;"  )
 cStr := STRTRAN( cStr, "<" , "&lt;"   )
 cStr := STRTRAN( cStr, ">" , "&gt;"   )
 cStr := STRTRAN( cStr, '"' , "&quot;" )
-
 RETURN cStr
-/*========================================================================*/
-
-/*========================================================================*/
-FUNCTION HtmlHandle()
-/*
- *  Returns the current HTML file handle.
- *  Used by rpPageOut() and rpPrintReset().
- */
-RETURN nHtmlHandle
-/*========================================================================*/
-
-/*========================================================================*/
-FUNCTION HtmlIsOpen()
-/*
- *  Returns .T. if HTML file is currently open.
- */
-RETURN lHtmlStarted
 /*========================================================================*/
