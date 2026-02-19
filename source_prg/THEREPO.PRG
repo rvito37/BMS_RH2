@@ -636,7 +636,7 @@ IF ::nDest == rpHTML
    TextToHtml( uVar, uVar + ".htm" )
    FERASE( uVar )
    * open HTML file in default browser - need full path with drive letter
-   uVar := CurDrive() + ":" + uVar + ".htm"
+   uVar := CurDrive() + uVar + ".htm"
    RUN ( "cmd /c start " + Chr(34)+Chr(34) + " " + Chr(34) + uVar + Chr(34) )
 ELSEIF ::nDest == rpPRINTER_FILE
    fn_fLPTCap()
