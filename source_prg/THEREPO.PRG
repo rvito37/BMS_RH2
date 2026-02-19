@@ -594,12 +594,18 @@ IF ::lCreateORP  //YG Shuwadah?
    rpUseFonts( oRP, .f. )
    oRP[ rpREPORT ][ rpREPORT_SHOW_COUNTER ] := .f.
 ENDIF
-IF ::nDest == rpHTML .OR. ::nDest == rpHTML_PRINT
-   * HTML output - let TVR generate a normal text file first,
-   * then convert it to HTML after rpGenReport() finishes.
+IF ::nDest == rpHTML
+   * Screen -> HTML: generate text file with ASCII printer (no PCL)
    rpDestination( oRP, rpPRINTER_FILE )
    rpPrinter( oRP, "ASCII" )
    rpOutFile( oRP, Alltrim( ::cTempFileDir + GetPrintFile() ) )
+ELSEIF ::nDest == rpHTML_PRINT
+   * Printer -> HTML + LPT1: generate text file with real printer (with PCL)
+   rpDestination( oRP, rpPRINTER_FILE )
+   ::nOldPrinter := GetUserInfo():nActivePrinter
+   rpPrinter( oRP, GetPrinter() )
+   rpOutFile( oRP, Alltrim( ::cTempFileDir + GetPrintFile() ) )
+   RpinitPcodes(oRP)
 ELSE
    rpDestination( oRP,::nDest)
 ENDIF
@@ -634,19 +640,22 @@ IF ::nDest == rpHTML .OR. ::nDest == rpHTML_PRINT
    * TVR wrote a text file via rpPRINTER_FILE - convert it to HTML
    uVar := Alltrim( ::cTempFileDir + GetPrintFile() )
    * TextToHtml shows its own animated progress bar on row 2
-   * pass .T. for lAutoPrint when destination is Printer
-   TextToHtml( uVar, uVar + ".htm", ::nDest == rpHTML_PRINT )
-   FERASE( uVar )
-   * open HTML file in default browser - need full path with drive letter
-   uVar := CurDrive() + uVar + ".htm"
+   TextToHtml( uVar, uVar + ".htm" )
    IF ::nDest == rpHTML_PRINT
+      * send raw text file (with PCL codes) to LPT1 printer
       @ 2,0 SAY Padr( " " + Chr(16) + " Sending to printer...", 80 ) COLOR "W+/N*"
-   ELSE
-      @ 2,0 SAY Padr( " " + Chr(16) + " Opening in browser...", 80 ) COLOR "W+/N*"
+      RUN ( "cmd /c copy /b " + Chr(34) + CurDrive() + uVar + Chr(34) + " lpt1" )
+      IF ::nOldPrinter # GetUserInfo():nActivePrinter
+         SetNewPrinter(::nOldPrinter)
+      ENDIF
    ENDIF
+   FERASE( uVar )
+   * open HTML file in default browser
+   uVar := CurDrive() + uVar + ".htm"
+   @ 2,0 SAY Padr( " " + Chr(16) + " Opening in browser...", 80 ) COLOR "W+/N*"
    RUN ( "cmd /c start " + Chr(34)+Chr(34) + " " + Chr(34) + uVar + Chr(34) )
    IF ::nDest == rpHTML_PRINT
-      @ 2,0 SAY Padr( " " + Chr(251) + " Sent to printer!  " + GetPrintFile() + ".htm", 80 ) COLOR "W+/G"
+      @ 2,0 SAY Padr( " " + Chr(251) + " Printed + HTML ready!  " + GetPrintFile() + ".htm", 80 ) COLOR "W+/G"
    ELSE
       @ 2,0 SAY Padr( " " + Chr(251) + " HTML report ready!  " + GetPrintFile() + ".htm", 80 ) COLOR "W+/G"
    ENDIF
