@@ -1,2 +1,24 @@
-# Large generated files (regenerate with tools/parse_rh2_fast.ps1)
-analysis/RH2_PARSED.txt
+# Compiled xBase
+*.obj
+*.exe
+*.lib
+*.ppo
+
+# Database files
+*.dbf
+*.cdx
+*.ntx
+*.ndx
+*.mdx
+*.dbt
+*.fpt
+
+# Temp files
+*.tmp
+*.bak
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
