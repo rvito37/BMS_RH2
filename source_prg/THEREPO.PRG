@@ -636,7 +636,7 @@ IF ::nDest == rpHTML
    TextToHtml( uVar, uVar + ".html" )
    FERASE( uVar )
    * open HTML file in default browser
-   RUN ( "start " + Chr(34)+Chr(34) + " " + Chr(34) + uVar + ".html" + Chr(34) )
+   RUN ( "cmd /c start " + Chr(34)+Chr(34) + " " + Chr(34) + uVar + ".html" + Chr(34) )
 ELSEIF ::nDest == rpPRINTER_FILE
    fn_fLPTCap()
 ELSEIF ::nDest == rpPRINTER
